@@ -30,7 +30,6 @@ export const CharacterProvider = ({ children }: React.PropsWithChildren) => {
 
   const changePage = (currentPage: number): void => {
     const newPage: number = (currentPage * itemsPerPage) % response.data?.total
-
     setCurrentPage(newPage)
   }
 

@@ -65,9 +65,9 @@ export default function CharactersPage() {
               )
             })}
           </Container>
-          <Pagination changePage={changePage} totalPages={totalPages} />
         </React.Fragment>
       )}
+      <Pagination changePage={changePage} totalPages={totalPages} />
     </Wrapper>
   )
 }
