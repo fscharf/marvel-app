@@ -1,11 +1,18 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { ICharacter, ICharacterResponse } from 'models'
 import { useRouter } from 'next/router'
-import React, { useContext, useEffect, useState } from 'react'
-import { httpClient } from 'services'
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState
+} from 'react'
+import { CharacterService } from 'services'
 
 type State = {
   characters: ICharacter[]
-  search: (value: string) => Promise<void>
+  search: (value: string) => void
   character?: ICharacter
   changePage: (currentPage: number) => void
   totalPages: number
@@ -23,69 +30,61 @@ export const CharacterProvider = ({ children }: React.PropsWithChildren) => {
   const [itemsPerPage] = useState<number>(8)
   const [currentPage, setCurrentPage] = useState(0)
   const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [searchValue, setSearchValue] = useState<string>('')
   const router = useRouter()
   const { id } = router.query
 
-  const totalPages: number = Math.ceil(response.data?.total / itemsPerPage)
+  const characterService = new CharacterService()
 
-  const changePage = (currentPage: number): void => {
-    const newPage: number = (currentPage * itemsPerPage) % response.data?.total
-    setCurrentPage(newPage)
-  }
+  const totalPages: number = useMemo(
+    () => Math.ceil(response.data?.total / itemsPerPage),
+    [response]
+  )
+
+  const changePage = useCallback(
+    (currentPage: number): void => {
+      const newPage: number =
+        (currentPage * itemsPerPage) % response.data?.total
+      setCurrentPage(newPage)
+    },
+    [response]
+  )
 
   const fetch = async (
     offset = 0,
-    limit: number = itemsPerPage
+    limit = itemsPerPage,
+    searchValue?: string
   ): Promise<void> => {
     setIsLoading(true)
-    await httpClient
-      .request<ICharacterResponse>(
-        `/characters?offset=${offset}&limit=${limit}`
-      )
-      .then(response => {
-        setCharacters(response.data.data.results)
-        setResponse(response.data)
-        setIsLoading(false)
-      })
-  }
-
-  const search = async (value: string): Promise<void> => {
-    setIsLoading(true)
-    if (value) {
-      await httpClient
-        .request<ICharacterResponse>(`/characters?nameStartsWith=${value}`)
-        .then(response => {
-          setCharacters(response.data.data.results)
-          router.push('/characters')
-          setIsLoading(false)
-        })
-    } else {
-      await fetch()
-    }
-  }
-
-  const getCharacterById = async (id: string): Promise<ICharacter> => {
-    setIsLoading(true)
-    const response = await httpClient.request<ICharacterResponse>(
-      `/characters/${id}`
-    )
+    await characterService
+      .getCharacters({ offset, limit, searchValue })
+      .then(setResponse)
     setIsLoading(false)
-    return response.data.data.results[0]
   }
+
+  const fetchById = async (id: number): Promise<void> => {
+    setIsLoading(true)
+    await characterService.getCharacterById(Number(id)).then(setCharacter)
+    setIsLoading(false)
+  }
+
+  const search = (value: string) => setSearchValue(value)
 
   useEffect(() => {
     fetch()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
-    fetch(currentPage)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage])
+    fetch(currentPage, itemsPerPage, searchValue)
+    if (searchValue) router.push('/characters')
+  }, [currentPage, searchValue])
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    if (id) getCharacterById(String(id)).then(setCharacter).catch(console.error)
+    setCharacters(response.data?.results || [])
+  }, [response])
+
+  useEffect(() => {
+    if (id) fetchById(Number(id))
   }, [id])
 
   return (
